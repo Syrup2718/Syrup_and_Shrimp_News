@@ -7,36 +7,59 @@ import datetime
 
 time = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8)))
 
+LABEL = [
+    "快訊",
+    "直擊",
+    "獨家",
+    "天氣",
+    "民調",
+    "專訪",
+    "影",
+    "獨",
+    "ATP年終賽",
+]
+
+
 # 抓新聞連結
 class CatchNews:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+            "Referer": "https://www.google.com/"
         })  
 
 
     def _get_soup(self, url):
-        resp = self.session.get(url, timeout=10)
-        resp.raise_for_status()
+        try:
+            resp = self.session.get(url, timeout=10)
+            resp.raise_for_status()
+        except requests.HTTPError as e:
+            print(f"[ERROR] {url} HTTPError:", e)
+            return None
+        except requests.RequestException as e:
+            print(f"[ERROR] {url} RequestException:", e)
+            return None
+
         return BeautifulSoup(resp.text, "html5lib")
 
     # 中國時報爬蟲 
     def chinatimes(self):       
         links = []
         base = "https://www.chinatimes.com"
-        url = base + "/hotnews?chdtv"
+        url = base + "/realtimenews/?chdtv"
 
         soup = self._get_soup(url)
-
+    
         news_list = soup.find_all("div", class_="cropper")
 
         for news in news_list:
             href = news.find("a").get("href")
             links.append(urljoin(base, href))
-
+        
         return links
-    
+
     # ETtoday爬蟲
     def ettoday(self):      
         links = []
@@ -146,21 +169,223 @@ class CatchNews:
         # TODO: 刷新頁面造成無法擷取後半部分
 
         return links
+    
+    # yahoo 爬蟲
+    def yahoo(self):
+        url = "https://tw.news.yahoo.com/_td-news/api/resource?bkt=t5-twnews-bts-p13n%2Ct1-pc-twnews-article-rr-onegam&crumb=r4MhVhc7wAX&device=desktop&ecma=modern&feature=oathPlayer%2CenableEvPlayer%2CenableGAMAds%2CenableGAMEdgeToEdge%2CvideoDocking%2CenableRightRailGAMAds&intl=tw&lang=zh-Hant-TW&partner=none&prid=65c4dn1kidvs2&region=TW&site=news&tz=Asia%2FTaipei&ver=2.3.3197"
+        
+        req_payload = {
+            "requests":{
+                "g0":{
+                    "resource":"ApacStreamService",
+                    "operation":"read",
+                    "params":{
+                        "ncpParams":{
+                            "body":{
+                                "gqlVariables":{
+                                    "main":{
+                                        "pagination":{
+                                            "nextParams":{
+                                                "count":170,
+                                                "snippetCount":20,
+                                                "paginationUuids":""}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "useNCP":True,
+                        "useCG":True,
+                    }
+                }
+            },
+            "context":{
+                "feature":"oathPlayer,enableEvPlayer,enableGAMAds,enableGAMEdgeToEdge,videoDocking,enableRightRailGAMAds",
+                "bkt":[
+                    "t5-twnews-bts-p13n",
+                    "t1-pc-twnews-article-rr-onegam"
+                ],
+                "crumb":"r4MhVhc7wAX",
+                "device":"desktop",
+                "intl":"tw",
+                "lang":"zh-Hant-TW",
+                "partner":"none",
+                "prid":"1vnqestkiid1k", # 會變動的數值
+                "region":"TW",
+                "site":"news",
+                "tz":"Asia/Taipei",
+                "ver":"2.3.3197",
+                "ecma":"modern"
+            }
+        }
+
+        resp = requests.post(url, headers=self.session.headers ,json=req_payload, timeout=10)
+        data = resp.json()["g0"]["data"]["stream_pagination"]["gqlVariables"]["main"]["pagination"]["nextParams"]["paginationUuids"]
+
+        data = json.dumps(data, ensure_ascii=False, indent=2)
+
+        # 找新聞payload
+        payload = {
+            "requests":{
+                "g0":{
+                    "resource":"ApacStreamService",
+                    "operation":"read","params":{
+                        "ui":{
+                            "comments":True,
+                            "editorial_featured_count":1,
+                            "image_quality_override":True,
+                            "link_out_allowed":True,
+                            "ntk_bypassA3c":True,
+                            "pubtime_maxage":0,
+                            "relative_links":True,
+                            "show_comment_count":True,
+                            "smart_crop":True,
+                            "storyline_count":2,
+                            "storyline_min":2,
+                            "summary":True,
+                            "thumbnail_size":100,
+                            "view":"mega",
+                            "editorial_content_count":0,
+                            "finance_upsell_threshold":4
+                        },
+                        "forceJpg":True,
+                        "releasesParams":{
+                            "limit":159,
+                            "offset":0
+                        },
+                        "ncpParams":{
+                            "query":{
+                                "adsSlotsEnabled":True,
+                                "namespace":"abu",
+                                "id":"main-stream",
+                                "clientId":"abu-web",
+                                "configId":"popular"
+                            },
+                            "body":{
+                                "gqlVariables":{
+                                    "main":{
+                                        "pagination":{
+                                            "nextParams":{
+                                                "count":170,
+                                                "snippetCount":159,
+                                                "paginationUuids":data
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "offnet":{
+                            "include_lcp":True
+                        },
+                        "use_content_site":True,
+                        "useNCP":True,
+                        "useCG":True,
+                        "ads":{
+                            "ad_polices":True,
+                            "contentType":"video/mp4,application/x-shockwave-flash",
+                            "count":25,
+                            "frequency":3,
+                            "inline_video":True,
+                            "pu":"https://tw.news.yahoo.com",
+                            "se":5419954,
+                            "spaceid":2144404979,
+                            "start_index":1,
+                            "timeout":450,
+                            "type":"STRM",
+                            "useHqImg":True,
+                            "useResizedImages":True,
+                            "enableTaboolaAds":True,
+                            "taboolaConfig":{
+                                "mode":"stream-twhk-news-a",
+                                "placement":"taboola-stream",
+                                "region":"index",
+                                "targetType":"mix"
+                            }
+                        },
+                        "batches":{
+                            "pagination":True,
+                            "size":159,
+                            "timeout":1300,
+                            "total":170
+                        },
+                        "enableAuthorBio":True,
+                        "max_exclude":0,
+                        "min_count":3,
+                        "service":{
+                            "specRetry":{"enabled":False}
+                        },
+                        "category":"",
+                        "pageContext":{
+                            "site":"news",
+                            "section":"most-popular",
+                            "topic":"default",
+                            "electionPageType":"default",
+                            "electionTvType":"default",
+                            "pageType":"minihome",
+                            "renderTarget":"default"
+                        },
+                        "content_type":"subsection",
+                        "storeData":{
+                            "stream_total":159,
+                            "stream_remaining":159,
+                            "stream_requested":159
+                        }
+                    }
+                }
+            },
+            "context":{
+                "feature":"oathPlayer,enableEvPlayer,enableGAMAds,enableGAMEdgeToEdge,videoDocking,enableRightRailGAMAds",
+                "bkt":[
+                    "t5-twnews-bts-p13n",
+                    "t1-pc-twnews-article-rr-onegam"
+                ],
+                "crumb":"r4MhVhc7wAX",
+                "device":"desktop",
+                "intl":"tw",
+                "lang":"zh-Hant-TW",
+                "partner":"none",
+                "prid":"1vnqestkiid1k", # 會變動的數值
+                "region":"TW",
+                "site":"news",
+                "tz":"Asia/Taipei",
+                "ver":"2.3.3197",
+                "ecma":"modern"
+            }
+        }
 
 
+        resp = requests.post(url, headers=self.session.headers, json=payload, timeout=10)
+        raw = resp.text 
+        data = json.loads(raw)
+
+        items = data["g0"]["data"]["stream_items"]
+
+        links = []
+        for item in items:
+            if item.get("type") != "article":
+                continue  # 跳過廣告 / 影片
+            
+            links.append(item.get("url"))
+
+        return links
+
+    
     def get_all_links_len(self):
         return {
-            "chinatimes": len(self.chinatimes()),
+            # "chinatimes": len(self.chinatimes()),
             "ettoday": len(self.ettoday()),
             "ltn": len(self.ltn()),
             "setn": len(self.setn()),
             "tvbs": len(self.tvbs()),
             "udn": len(self.udn()),
+            "yahoo": len(self.yahoo()),
         }
     
     
     def get_all_links(self):
-        links = [self.chinatimes(), self.ettoday(), self.ltn(), self.setn(), self.tvbs(), self.udn()]
+        # links = [self.chinatimes(), self.ettoday(), self.ltn(), self.setn(), self.tvbs(), self.udn()]
+        links = [self.ettoday(), self.ltn(), self.setn(), self.tvbs(), self.udn(), self.yahoo()]
         flat = [link for sub in links for link in sub]
         return flat
 
@@ -169,13 +394,23 @@ class CatchArticle:
     def __init__(self, session=None):
         self.session = session or requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0"
-        })
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+            "Referer": "https://www.google.com/"
+        })  
 
     # soup整合包
     def _get_soup(self, url):
-        resp = self.session.get(url, timeout=10)
-        resp.raise_for_status()
+        try:
+            resp = self.session.get(url, timeout=10)
+            resp.raise_for_status()
+        except requests.HTTPError as e:
+            print(f"[ERROR] {url} HTTPError:", e)
+            return None
+        except requests.RequestException as e:
+            print(f"[ERROR] {url} RequestException:", e)
+            return None
+
         return BeautifulSoup(resp.text, "html5lib")
 
     # 判斷網址是哪個的新聞網
@@ -193,12 +428,35 @@ class CatchArticle:
             return self.catch_tvbs(url)
         if "udn.com" in host:
             return self.catch_udn(url)
+        if "yahoo.com" in host:
+            return self.catch_yahoo(url)
 
-    # 中國時報內文 10/10
+    # 資料清洗
+    def clean_title(self, title):
+        pattern = "|".join(LABEL)
+
+        prefix = re.compile(
+            rf'^(?:[「『"“])?(?:({pattern})[／》])+'
+        )
+        
+        t = (title or "").strip()
+        t = t.replace("\u3000", " ")  # 把全形空白變成半形空白
+        
+        while True:
+            new_t = prefix.sub("", t, count=1).lstrip()
+            if new_t == t:
+                break
+            t = new_t
+
+        t = re.sub(r"\s+", " ", t)
+        return t
+    
+    # 中國時報內文 10/10 (疑似廢了)
     def catch_chinatimes(self, url):
         soup = self._get_soup(url)
         title = soup.find("h1", class_="article-title").get_text()
         title = title.replace(" ", "")
+        title = self.clean_title(title)
 
         content = soup.find("div", class_="article-body").find_all("p", class_=False)
         texts = ""
@@ -224,7 +482,8 @@ class CatchArticle:
         
         title = soup.find("h1", itemprop="headline").get_text()
         title = title.replace(" ", "")
-
+        title = self.clean_title(title)
+        
         content = soup.find("div", class_="story").find_all("p", class_=False)
         texts = ""  
         for word in content:
@@ -258,6 +517,7 @@ class CatchArticle:
         if "ec.ltn.com.tw" in host:
             title = soup.find("h1").get_text()
             title = title.replace(" ", "")
+            title = self.clean_title(title)
             
             content = soup.select('div[class="text"]')[0].find_all("p")[1:-3]
             for word in content:
@@ -286,6 +546,7 @@ class CatchArticle:
         elif "news.ltn.com.tw" in host:
             title = soup.find("h1").get_text()
             title = title.replace(" ", "")
+            title = self.clean_title(title)
             
             content = soup.find("div", class_="text boxTitle boxText").find_all("p")[:-2]
             for word in content:
@@ -324,6 +585,7 @@ class CatchArticle:
         if "www.setn.com" in host:
             title = soup.find("h1").get_text()
             title = title.replace(" ", "")
+            title = self.clean_title(title)
             
             content = soup.find("article").find_all("p")
             for word in content:
@@ -339,10 +601,20 @@ class CatchArticle:
                     continue
                     
                 texts += text
+            
+            article = {
+            "source": "SETN",
+            "url": url,
+            "title": title,
+            "content": texts,
+            }
+            
+            return article
 
         elif "star.setn.com" in host:
             title = soup.find("h1").get_text()
             title = title.replace(" ", "")
+            title = self.clean_title(title) 
             
             content = soup.find("article", class_="printdiv").find_all("p")
             for word in content:
@@ -360,15 +632,15 @@ class CatchArticle:
                     continue
 
                 texts += text   
-                
-        article = {
-            "source": "SETN",
-            "url": url,
-            "title": title,
-            "content": texts,
-        }
-        
-        return article
+
+            article = {
+                "source": "SETN",
+                "url": url,
+                "title": title,
+                "content": texts,
+            }
+            
+            return article
     
     # TVBS 5/10
     def catch_tvbs(self, url):
@@ -376,6 +648,7 @@ class CatchArticle:
         texts = ""
         title = soup.find("h1", class_="title").get_text()
         title = title.replace(" ", "")
+        title = self.clean_title(title)
         
         content = soup.find("div", class_="article_content")
         center = content.find("div", align="center")
@@ -405,7 +678,8 @@ class CatchArticle:
         text = ""
         title = soup.find("h1", class_="article-content__title").get_text()
         title = title.replace(" ", "")
-
+        title = self.clean_title(title)
+        
         content = soup.find("section", class_="article-content__editor").find_all("p", class_=False, style=False)
         texts = ""
         for word in content:
@@ -424,6 +698,36 @@ class CatchArticle:
         
         return article
 
+    
+    def catch_yahoo(self, url):
+        soup = self._get_soup(url)
+        texts = ""
+        title = soup.find("h1", class_="text-px24 text-batcave lg:text-px36 inline leading-[1.35] font-bold").get_text()
+        title = title.replace(" ", "")
+        title = self.clean_title(title)
+        
+        content = soup.find("div", class_="atoms").find_all("p")
+
+        for word in content:
+            text = word.get_text()
+            if not text:
+                continue
+            if text.startswith("記者") or text.startswith("首次上稿") or text.startswith("請繼續往下閱讀"):
+                            continue
+
+            texts += text
+            
+        article = {
+            "source": "yahoo",
+            "url": url,
+            "title": title,
+            "content": texts,
+        }
+
+        return article
+        
+        
+        
 # 將所有的新聞存成jsonl
 def download_news():
     catch_news = CatchNews()
@@ -447,3 +751,11 @@ def download_news():
 
 
 download_news()
+
+
+# owo = CatchNews()
+# l = owo.yahoo()
+
+# awa = CatchArticle()
+# for ll in l:
+#     print(awa.catch_yahoo(ll))
