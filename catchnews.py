@@ -17,6 +17,8 @@ LABEL = [
     "影",
     "獨",
     "ATP年終賽",
+    "LTN經濟通》",
+    
 ]
 
 
@@ -725,9 +727,8 @@ class CatchArticle:
         }
 
         return article
-        
-        
-        
+
+
 # 將所有的新聞存成jsonl
 def download_news():
     catch_news = CatchNews()
@@ -744,13 +745,17 @@ def download_news():
             article = catch_article.fetch(link)
             if article is None:
                 continue
+            if any(v == "" for v in article.values()):
+                continue
         
             f.write(json.dumps(article, ensure_ascii=False) + "\n")
             print(f"{i}/{len(links)}")
     print("Download completed.  ε٩(๑> ₃ <)۶з")
+    
+    return filename
 
 
-download_news()
+# download_news()
 
 
 # owo = CatchNews()

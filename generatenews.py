@@ -58,15 +58,22 @@ class GenerateNews:
     
     
     def build_prompt(self):
+        max_char = 4096
+        total_len=0
         blocks = []
         for i, art in enumerate(self.articles, start=1):
             title = art.get("title", "").strip()
             content = art.get("content", "").strip()
-            blocks.append(
-                f"【原始新聞 {i} 標題】{title}\n"
-                f"【原始新聞 {i} 內文】{content}\n"
+            chunk = (
+            f"【原始新聞 {i} 標題】{title}\n"
+            f"【原始新聞 {i} 內文】{content}\n\n"
             )
 
+            if total_len + len(chunk) > max_char:
+                break
+            blocks.append(chunk)
+            total_len += len(chunk)
+        
         joined = "\n\n".join(blocks)
         
         prompt = f"""
@@ -80,6 +87,7 @@ class GenerateNews:
             5. 勿用過多的冗詞贅字，聚焦於事件本身。
             6. 請以Inverted pyramid結構寫作。
             7. 不評論，只報導。
+            8. 標題不要超過20字。
 
             輸出格式非常重要，請嚴格遵守：
             - 第一行：新聞標題（一行，不要額外前綴）
@@ -89,7 +97,7 @@ class GenerateNews:
 
             {joined}
             """
-    
+            
         # print(len(prompt))
         # print(prompt)
         # print("===========================================================")
