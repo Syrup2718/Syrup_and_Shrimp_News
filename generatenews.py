@@ -117,6 +117,9 @@ class GenerateNews:
             if re.match(r"\d+\.\s", stripped):
                 return True
         
+        if "\t" in text:
+            return True
+        
         if "```" in text or "**" in text or "__" in text or "`" in text:
             return True
         
