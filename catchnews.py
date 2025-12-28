@@ -765,7 +765,7 @@ def download_news():
     return filename
 
 
-download_news()
+# download_news()
 
 
 # owo = CatchNews()

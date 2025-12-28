@@ -5,6 +5,7 @@ from readjust import rename, export_json
 
 
 def main():
+    print("[0] 開始執行(=´ω`=)")
     # 1. 抓新聞 & 存成 jsonl
     jsonl_path = download_news()
     print(f"[1] 新聞已儲存到：{jsonl_path}")

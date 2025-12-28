@@ -25,7 +25,7 @@ class ClusterNews:
                     self.titles.append(data["title"])
                 except json.JSONDecodeError:
                     continue
-        
+                
         return self
     
     # 前期處理，將文章儲存成正確格式
