@@ -2,6 +2,7 @@
 **A Neutral, Fair, and Objective News Source.**
 
 💫 [Website Portal](https://syrupshrimp.qzz.io/)
+⚠️ To view news results, please select > Archive (2026/01/04~2026/01/06)
 
 - [Syrup and Shrimp News](#syrup-and-shrimp-news)
   - [Introduce](#introduce)
